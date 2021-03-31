@@ -1,0 +1,35 @@
+# Display the drive space on all drives
+# if any have < 10% free space, log to a file for review
+
+function DriveSpace {
+param( [string] $strComputer) 
+"$strComputer ---- Free Space (percentage) ----"
+
+# Does the server responds to a ping (otherwise the WMI queries will fail)
+
+$query = "select * from win32_pingstatus where address = '$strComputer'"
+$result = Get-WmiObject -query $query
+if ($result.protocoladdress) {
+
+    # Get the Disks for this computer
+    $colDisks = get-wmiobject Win32_LogicalDisk -computername $strComputer -Filter "DriveType = 3"
+
+    # For each disk calculate the free space
+    foreach ($disk in $colDisks) {
+       if ($disk.size -gt 0) {$PercentFree = [Math]::round((($disk.freespace/$disk.size) * 100))}
+       else {$PercentFree = 0}
+
+  $Drive = $disk.DeviceID
+       "$strComputer - $Drive - $PercentFree"
+
+       # E:\batch\ > is my local path where PowerShell will write the output
+       # Critical Drive Space.txt > is the output file name
+       # if  < 10% free space, log to a file
+       if ($PercentFree -le 10) {"$strComputer - $Drive - $PercentFree" | out-file -append -filepath "E:\batch\Critical Drive Space.txt"}
+    }
+}
+}
+
+# E:\batch\ > is my local path where PowerShell will read the servers to be checked
+# Servers.txt > is the text file where I have listed all my servers
+foreach ($computer in cat E:\batch\Servers.txt) {DriveSpace "$computer"}
